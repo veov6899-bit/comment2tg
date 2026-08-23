@@ -208,10 +208,19 @@ def extract_comments(html_text, site, page_url, title_override=None):
             items = []
 
     for it in items:
+        # Сэтгэгдэл бичих форм / дүрмийн анхааруулга бол сэтгэгдэл биш
+        if _tokens(it) & FORM_TOKENS or _has_form(it):
+            continue
         if c.get("text"):
             text = pick(it, c["text"])
         else:
             text = clean(it.get_text(" ", strip=True))
+        if not text:
+            continue
+        if BOILERPLATE_RE.search(text[:300]) or COUNT_START_RE.match(text):
+            continue
+        # Зарим сайт сэтгэгдлийн эхэнд IP хаяг бичдэг - түүнийг нийтлэхгүй
+        text = clean(re.sub(r"^\s*(?:%s)\s*" % IP_RE.pattern, "", text))
         if not text:
             continue
 
@@ -289,6 +298,7 @@ def extract_wordpress(site, settings, session):
 
 def discover_links(site, settings, session):
     """Жагсаалтын хуудаснаас мэдээний линкүүдийг цуглуулна."""
+    from urllib.parse import urljoin
     d = site.get("discover") or {}
     urls = []
     for list_url in d.get("from", []):
@@ -302,11 +312,8 @@ def discover_links(site, settings, session):
             href = (a.get("href") or "").strip()
             if not href:
                 continue
-            if href.startswith("//"):
-                href = "https:" + href
-            elif href.startswith("/"):
-                m = re.match(r"(https?://[^/]+)", list_url)
-                href = (m.group(1) if m else "") + href
+            # "p/199969" гэх мэт харьцангуй хаягийг ч зөв задлана
+            href = urljoin(list_url, href)
             if not href.startswith("http"):
                 continue
             if pat and not pat.match(href):
@@ -341,6 +348,18 @@ FORM_TOKENS = {"respond", "form", "mediaform", "editor", "composer", "submit", "
 NOISE_TOKENS = {"avatar", "vote", "votes", "like", "unlike", "share", "icon", "count",
                 "climiter", "guideline", "guidelines", "warning", "warn", "warring",
                 "pagination", "tab", "tabbar", "reply", "cheader", "ccount"}
+# Сэтгэгдлийн хэсгийн анхааруулга/дүрэм — эдгээрийг агуулсан блок бол сэтгэгдэл биш,
+# харин сэтгэгдэл бичих талбарын тайлбар юм.
+BOILERPLATE_RE = re.compile(
+    r"\u0430\u0434\u043c\u0438\u043d\s+\u0443\u0441\u0442\u0433\u0430\u0445"          # админ устгах
+    r"|\u0451\u0441\s+\u0441\u0443\u0440\u0442\u0430\u0445\u0443\u0443\u043d"          # ёс суртахуун
+    r"|\u0425\u0425\u0417\u0425"                                                              # ХХЗХ
+    r"|\u0441\u044d\u0442\u0433\u044d\u0433\u0434\u044d\u043b \u0431\u0438\u0447\u0438\u0445\u0434\u044d\u044d"  # сэтгэгдэл бичихдээ
+    r"|\u0437\u04af\u0439 \u0437\u043e\u0445\u0438\u0441\u0433\u04af\u0439"              # зүй зохисгүй
+    r"|\u0431\u0430\u0440\u0438\u043c\u0442\u0430\u043b\u043d\u0430 \u0443\u0443",      # баримтална уу
+    re.I)
+# "Сэтгэгдэл (5)" гэж ЭХЭЛСЭН блок = тоологч бүхий хайрцаг
+COUNT_START_RE = re.compile(r"^\s*\u0441\u044d\u0442\u0433\u044d\u0433\u0434\u044d\u043b\w*\s*\(", re.I)
 # "9 сэтгэгдэл" / "Сэтгэгдэл (3)" гэх мэт тоологчийн гарчиг
 COUNT_HDR_RE = re.compile(r"^\(?\s*\d+\s*\)?\s*(?:\u0441\u044d\u0442\u0433\u044d\u0433\u0434\u044d\u043b\w*|comments?)\s*:?$"
                           r"|^(?:\u0441\u044d\u0442\u0433\u044d\u0433\u0434\u044d\u043b\w*|comments?)\s*:?\s*\(?\s*\d+\s*\)?$", re.I)
@@ -486,7 +505,13 @@ def _cohesion(els):
         return 0.0
     counts = {}
     for e in els:
-        k = id(e.parent)
+        par = e.parent
+        # Эцгийн ТӨРӨЛ + КЛАСС-аар нь бүлэглэнэ. Зарим сайт сэтгэгдэл бүрийг
+        # тусдаа ижил хайрцагт боодог тул эцэг нь өөр ч бүтэц нь ижил байдаг.
+        if par is None:
+            k = ("", ())
+        else:
+            k = (getattr(par, "name", ""), tuple(par.get("class") or []))
         counts[k] = counts.get(k, 0) + 1
     top = max(counts.values())
     nested = sum(1 for e in els if any(o is not e and _contains(o, e) for o in els))
@@ -529,9 +554,9 @@ def detect_selectors(html_text, min_items=2):
         own_hint = bool(HINT_RE.search(tok))
         if not own_hint:
             continue
-        if any(_tokens(e) & FORM_TOKENS for e in els[:5]):        # хариу бичих форм
-            continue
-        if any(_has_form(e) for e in els[:5]):
+        # Сэтгэгдэл бичих формыг ЖАГСААЛТААС хасна (нэр дэвшигчийг бүхэлд нь хаяхгүй)
+        els = [e for e in els if not (_tokens(e) & FORM_TOKENS) and not _has_form(e)]
+        if len(els) < min_items:
             continue
 
         texts = [_txt(e) for e in els]
@@ -540,6 +565,11 @@ def detect_selectors(html_text, min_items=2):
         if med < (40 if len(els) < 2 else 20):
             continue
         if any(COUNT_HDR_RE.match(t) for t in texts):             # "9 сэтгэгдэл" гэсэн гарчиг
+            continue
+        # Анхааруулга/дүрмийн текст агуулсан бол энэ нь сэтгэгдэл бичих ХЭСЭГ, сэтгэгдэл биш
+        if sum(1 for t in texts if BOILERPLATE_RE.search(t)) >= max(1, len(texts) * 0.5):
+            continue
+        if sum(1 for t in texts if COUNT_START_RE.match(t)) >= max(1, len(texts) * 0.5):
             continue
         if _cohesion(els) < 0.6:                                  # эгнээ үүсгэдэггүй = сэтгэгдэл биш
             continue
@@ -553,6 +583,23 @@ def detect_selectors(html_text, min_items=2):
 
     if not cands:
         return None
+
+    # --- 1b. ЖАГСААЛТЫН ХАЙРЦГИЙГ хасна.
+    # Нэг элемент нь өөр нэр дэвшигчийн 2+ элементийг агуулж байгаад, өөрийн тоо нь
+    # эрс цөөн бол тэр нь бүх сэтгэгдлийг багтаасан хайрцаг мөн (сэтгэгдэл биш).
+    # (Хариултууд эцэг сэтгэгдэл дотор ордог тохиолдлыг тоогоор нь ялгана.)
+    drop = set()
+    for i, x in enumerate(cands):
+        for y in cands:
+            if y is x or y["count"] < 2:
+                continue
+            if x["count"] * 2 > y["count"]:
+                continue
+            if any(sum(1 for e in y["els"] if _contains(xe, e)) >= 2 for xe in x["els"][:5]):
+                drop.add(i)
+                break
+    if len(drop) < len(cands):
+        cands = [c for i, c in enumerate(cands) if i not in drop]
 
     # --- 2. Хамгийн гадна талын блокыг сонгоно (сэтгэгдэл бүрийг бүхэлд нь агуулсан)
     cands.sort(key=lambda c: (-c["score"], -c["count"]))
@@ -585,8 +632,15 @@ def detect_selectors(html_text, min_items=2):
               if len(g["items"]) >= max(2, int(len(items) * 0.7))]
     stats = []
     for classes, g in usable:
-        toks = {c.lower() for c in classes}
+        # Классын нэрийг ҮГЭЭР нь задлан шүүнэ: "comment-reply-btn" -> {comment, reply, btn}
+        toks = set()
+        for c0 in classes:
+            toks |= {x for x in re.split(r"[^0-9A-Za-z\u0400-\u04ff]+", c0.lower()) if x}
         if toks & (NOISE_TOKENS | FORM_TOKENS):
+            continue
+        # Бүх сэтгэгдэл дээр ЯГ ИЖИЛ текст гарч байвал энэ нь товчны шошго (сэтгэгдэл биш)
+        nonempty = [t for t in g["texts"] if t]
+        if len(nonempty) >= 3 and len(set(nonempty)) <= 1:
             continue
         avg_len = sum(len(t) for t in g["texts"]) / float(len(g["texts"]))
         if avg_len < 12:
@@ -597,12 +651,25 @@ def detect_selectors(html_text, min_items=2):
         avg_depth = sum(g["depths"]) / float(len(g["depths"]))
         stats.append((classes, g, avg_len, avg_depth))
 
+    # Зарим сайт сэтгэгдлээ классгүй <p> дотор бичдэг
+    for tag_sel in ("p",):
+        vals = [pick(it, tag_sel) for it in items]
+        got = [v for v in vals if v]
+        if len(got) >= max(2, int(len(items) * 0.7)) and len(set(got)) > 1:
+            avg = sum(len(v) for v in got) / float(len(got))
+            if avg >= 12:
+                stats.append((("__tag__" + tag_sel,), None, avg, 2.0))
+
     if stats:
         max_len = max(x[2] for x in stats)
         keep = [x for x in stats if x[2] >= 0.55 * max_len]
         keep.sort(key=lambda x: (-x[3], -x[2]))                   # хамгийн гүнд байгаа цэвэр текст
         if keep:
-            cand_sel = _sel_from_classes(list(keep[0][0]))
+            key = keep[0][0]
+            if len(key) == 1 and key[0].startswith("__tag__"):
+                cand_sel = key[0][len("__tag__"):]
+            else:
+                cand_sel = _sel_from_classes(list(key))
             if cand_sel:
                 ok = sum(1 for it in items if pick(it, cand_sel))
                 if ok >= max(2, int(len(items) * 0.7)):
@@ -1013,6 +1080,10 @@ def cmd_add(url, cfg, settings, name=None):
         t, rows, source = harvest(cand, probe, settings, session)
         # 1-р үе шатанд 2+ сэтгэгдэлтэй мэдээ л хэрэгтэй (JS/JSON замд ч мөн адил)
         if min_items >= 2 and len(rows) < 2:
+            rows = []
+        # Бүх "сэтгэгдэл" ижил текст = товчны шошгыг барьсан байна
+        if len(rows) >= 3 and len({r["text"] for r in rows}) <= 1:
+            log("   (буруу таналт: бүх текст ижил байна, үргэлжлүүлэн хайж байна)")
             rows = []
         if not rows:
             probe.pop("comment", None)
