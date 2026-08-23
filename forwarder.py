@@ -24,6 +24,7 @@ import html
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -1596,6 +1597,28 @@ def cmd_toggle(cfg, name, mode):
     log("Унтраалттай:   %s" % (", ".join(n for n in names if n not in on) or "(байхгүй)"))
 
 
+def git_sync():
+    """
+    Үүлэн дээр ажиллаж байхад 'уншсан' тэмдэглэгээг репод буцааж хадгална.
+    Ингэснээр ажиллагаа тасарсан ч сэтгэгдэл давхар илгээгдэхгүй.
+    """
+    def g(*args):
+        return subprocess.run(["git"] + list(args), cwd=BASE_DIR,
+                              capture_output=True, text=True, encoding="utf-8")
+    try:
+        g("add", "state")
+        if g("diff", "--cached", "--quiet").returncode == 0:
+            return                                   # өөрчлөлт алга
+        stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        g("commit", "-m", "state: %s" % stamp)
+        g("pull", "--rebase", "--autostash")
+        r = g("push")
+        if r.returncode != 0:
+            log("   ! state-ийг хадгалж чадсангүй: %s" % (r.stderr or "").strip()[:160])
+    except Exception as e:
+        log("   ! git алдаа: %s" % e)
+
+
 # ---------------------------------------------------------------- main
 
 def main():
@@ -1611,6 +1634,10 @@ def main():
     ap.add_argument("--name", default=None, help="--add хийхэд өгөх сайтын нэр (үндсэн: домэйн)")
     ap.add_argument("--inspect", metavar="URL", default=None, help="шинэ сайтын selector-ийг гараар судлах")
     ap.add_argument("--test-telegram", action="store_true", help="Telegram холболт шалгах")
+    ap.add_argument("--max-runtime", type=int, default=0, metavar="МИНУТ",
+                    help="давталтыг энэ хугацааны дараа цэвэрхэн зогсоох (үүлэн орчинд)")
+    ap.add_argument("--git-sync", action="store_true",
+                    help="мөчлөг бүрийн дараа state-ээ git репод хадгалах (үүлэн орчинд)")
     ap.add_argument("--list", action="store_true", help="тохируулсан сайтуудыг жагсаах")
     ap.add_argument("--only", metavar="НЭР", default=None,
                     help="ЗӨВХӨН энэ сайтыг үлдээж бусдыг унтраах")
@@ -1656,6 +1683,9 @@ def main():
 
     interval = int(settings.get("interval_seconds", 300))
 
+    started = time.time()
+    deadline = started + args.max_runtime * 60 if args.max_runtime else None
+
     while True:
         total = 0
         for s in sites:
@@ -1664,8 +1694,18 @@ def main():
             except Exception as e:
                 log("! %s дээр алдаа: %s" % (s.get("name"), e))
         log("Нийт илгээсэн: %d" % total)
+
+        if args.git_sync and not args.dry_run:
+            git_sync()
+
         if not args.loop:
             break
+
+        # Дараагийн мөчлөг хугацаанд багтахгүй бол одоо дуусгана
+        if deadline and time.time() + interval >= deadline:
+            log("Хугацаа дуусав (%d минут). Ажиллагааг цэвэрхэн зогсоолоо." % args.max_runtime)
+            break
+
         log("... %d секунд хүлээж байна\n" % interval)
         time.sleep(interval)
 

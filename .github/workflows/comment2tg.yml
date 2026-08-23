@@ -1,25 +1,28 @@
 name: comment2tg
 
 # Сайтуудын шинэ сэтгэгдлийг Telegram суваг руу дамжуулна.
-# Үнэгүй ажиллана: НИЙТИЙН (public) репод GitHub Actions-ийн минут хязгааргүй.
-# Хаалттай (private) репо бол сард 2000 минут л үнэгүй тул cron-оо "0 * * * *" (цаг тутам) болгоно уу.
+#
+# ЯАГААД ИЙМ БҮТЭЦТЭЙ ВЭ:
+# GitHub-ын "*/5 минут тутам" гэсэн хуваарь бодит байдалд найдваргүй (огт асахгүй байх нь бий).
+# Тиймээс нэг ажиллагаа 55 минут үргэлжилж, ДОТРОО 5 минут тутам шалгадаг болгосон.
+# Ингэснээр GitHub цагт ганц удаа асаахад л хангалттай — цагийн хуваарь илүү найдвартай болно.
 
 on:
   schedule:
-    - cron: "*/5 * * * *"       # 5 минут тутам (GitHub-ийн зөвшөөрдөг хамгийн богино)
-  workflow_dispatch:             # гараар ажиллуулах товч
+    - cron: "7 * * * *"        # цаг тутам (:07 минутад - оргил ачааллаас зайлсхийв)
+  workflow_dispatch:            # гараар ажиллуулах товч
 
 permissions:
-  contents: write                # state-ээ буцааж хадгалахын тулд
+  contents: write               # "уншсан" тэмдэглэгээг репод буцааж хадгалахын тулд
 
 concurrency:
-  group: comment2tg              # хоёр ажил зэрэг ажиллаж давхар илгээхээс сэргийлнэ
+  group: comment2tg             # хоёр ажиллагаа зэрэг явж давхар илгээхээс сэргийлнэ
   cancel-in-progress: false
 
 jobs:
   forward:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v7
 
@@ -31,16 +34,20 @@ jobs:
       - name: Сангуудыг суулгах
         run: pip install -r requirements.txt
 
-      - name: Шинэ сэтгэгдлийг дамжуулах
-        env:
-          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-        run: python forwarder.py --once
-
-      - name: Уншсан тэмдэглэгээг хадгалах
+      - name: Git-ийн нэрийг тохируулах
         run: |
           git config user.name "comment2tg"
           git config user.email "actions@users.noreply.github.com"
+
+      - name: Шинэ сэтгэгдлийг дамжуулах (55 минут, 5 минут тутам шалгана)
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: python forwarder.py --loop --max-runtime 55 --git-sync
+
+      - name: Эцэст нь тэмдэглэгээг хадгалах
+        if: always()
+        run: |
           git add state
           if git diff --cached --quiet; then
             echo "өөрчлөлт алга"
