@@ -140,6 +140,50 @@ def act_test():
     print("")
 
 
+def local_loops():
+    """Энэ компьютер дээр forwarder.py --loop ажиллаж байгаа эсэхийг шалгана."""
+    ps = ("Get-CimInstance Win32_Process -Filter \"Name='python.exe' OR Name='pythonw.exe'\" "
+          "| Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress")
+    try:
+        r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                           capture_output=True, text=True, encoding="utf-8", timeout=30)
+        data = json.loads(r.stdout or "[]")
+    except Exception:
+        return None                       # шалгаж чадсангүй
+    if isinstance(data, dict):
+        data = [data]
+    out = []
+    for p in data:
+        cmd = (p.get("CommandLine") or "")
+        if "forwarder.py" in cmd and "--loop" in cmd:
+            out.append((p.get("ProcessId"), cmd.strip()))
+    return out
+
+
+def act_check_local():
+    print("\n  Компьютер дээрх ажиллагааг шалгаж байна...\n")
+    loops = local_loops()
+    if loops is None:
+        print("  Шалгаж чадсангүй. Task Manager -> Details -> python.exe гэж гараар харна уу.\n")
+        return
+    if not loops:
+        print("  ЗӨВ: энэ компьютер дээр юу ч ажиллахгүй байна.")
+        print("  Сэтгэгдлийг зөвхөн GitHub илгээж байна - давхардахгүй.\n")
+        return
+    print("  АНХААР: энд %d ажиллагаа явж байна:\n" % len(loops))
+    for pid, cmd in loops:
+        print("    PID %-7s %s" % (pid, cmd[:90]))
+    print("\n  Энэ нь GitHub-тай зэрэг ажиллаж байгаа тул сэтгэгдэл ХОЁР УДАА ирнэ.")
+    a = ask("\n  Зогсоох уу? (Enter = тийм, n = үгүй): ")
+    if a.lower() in ("", "y", "yes", "т", "тийм"):
+        for pid, _ in loops:
+            subprocess.run(["taskkill", "/PID", str(pid), "/F"],
+                           capture_output=True, text=True)
+        print("\n  Зогсоолоо.\n")
+    else:
+        print("")
+
+
 def push(msg):
     print("\n  GitHub руу илгээж байна...\n")
     # Үүлэн ажиллагаа өөрийн тэмдэглэгээг хадгалдаг тул эхлээд татаж авна
@@ -186,6 +230,7 @@ MENU = """
     4) Сайт асаах / унтраах
     5) Туршиж үзэх (илгээхгүй)
     6) GitHub руу илгээх
+    7) Энэ компьютер дээр ажиллаж байгаа эсэхийг шалгах
     0) Гарах
 """
 
@@ -209,6 +254,8 @@ def main():
             act_test()
         elif a == "6":
             push("тохиргоо шинэчлэв")
+        elif a == "7":
+            act_check_local()
         elif a in ("0", "q", ""):
             print("\n  Баяртай.\n")
             return
