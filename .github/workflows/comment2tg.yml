@@ -6,7 +6,7 @@ name: comment2tg
 
 on:
   schedule:
-    - cron: "*/15 * * * *"      # 15 минут тутам (GitHub-ийн доод хязгаар нь 5 минут)
+    - cron: "*/5 * * * *"       # 5 минут тутам (GitHub-ийн зөвшөөрдөг хамгийн богино)
   workflow_dispatch:             # гараар ажиллуулах товч
 
 permissions:
