@@ -33,7 +33,7 @@
   "sites": [
     {
       "name": "zarig.mn",
-      "enabled": true,
+      "enabled": false,
       "mode": "html",
       "newest_first": true,
       "title_selector": "h1",
@@ -65,7 +65,7 @@
     },
     {
       "name": "isee.mn",
-      "enabled": true,
+      "enabled": false,
       "mode": "auto",
       "newest_first": true,
       "title_selector": "h1",
@@ -88,7 +88,7 @@
     },
     {
       "name": "news.mn",
-      "enabled": true,
+      "enabled": false,
       "mode": "wordpress",
       "base_url": "https://news.mn",
       "per_page": 20,
@@ -101,7 +101,7 @@
     },
     {
       "name": "unuudur.mn",
-      "enabled": true,
+      "enabled": false,
       "mode": "auto",
       "newest_first": true,
       "title_selector": "h1",
@@ -132,7 +132,7 @@
     },
     {
       "name": "shuurhai.mn",
-      "enabled": true,
+      "enabled": false,
       "mode": "auto",
       "newest_first": true,
       "title_selector": "h1",

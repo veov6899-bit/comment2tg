@@ -261,10 +261,30 @@ git push -u origin main
 
 ---
 
+## Сайт асаах / унтраах
+
+```bash
+python forwarder.py --list
+```
+
+Тохируулсан бүх сайтыг ON/off төлөвтэй нь харуулна. Дараа нь:
+
+```bash
+python forwarder.py --only ikon.mn
+```
+
+Зөвхөн нэрлэсэн сайтыг үлдээж бусдыг унтраана. Ганцхан сайтыг унтраах/асаах бол `--disable <нэр>` / `--enable <нэр>`.
+
+> Унтраасан сайтын тохиргоо болон "уншсан" тэмдэглэгээ хэвээр үлддэг — буцааж асаахад хуучин сэтгэгдлүүд дахин орохгүй.
+
+---
+
 ## Командын жагсаалт
 
 ```bash
 python forwarder.py --add URL             # ⭐ шинэ сайт нэмэх (линк өгөхөд л болно)
+python forwarder.py --list                # сайтуудыг жагсаах (ON/off)
+python forwarder.py --only ikon.mn        # зөвхөн нэг сайтыг үлдээх
 python forwarder.py --inspect URL         # бүтцийг нь гараар судлах
 python forwarder.py --test-telegram       # бот шалгах
 python forwarder.py --seed                # одоогийн бүгдийг уншсан болгох

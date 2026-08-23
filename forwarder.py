@@ -1543,6 +1543,59 @@ def inspect(url, settings):
             print('   {"name": "...", "mode": "wordpress", "base_url": "%s"}' % m.group(1))
 
 
+def save_config(cfg):
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
+
+
+def cmd_list(cfg):
+    """Тохируулсан сайтуудыг жагсаана."""
+    sites = cfg.get("sites", [])
+    if not sites:
+        log("Сайт алга. Нэмэх:  python forwarder.py --add https://сайт.mn/")
+        return
+    print("")
+    print("  %-3s %-16s %-10s %-9s %s" % ("", "САЙТ", "ГОРИМ", "УНШСАН", "ХАЯГ"))
+    print("  " + "-" * 74)
+    for st in sites:
+        name = st.get("name", "?")
+        on = st.get("enabled", True)
+        seen = len(load_state(name))
+        d = st.get("discover") or {}
+        src = (d.get("from") or [st.get("base_url", "")])
+        src = src[0] if src else ""
+        print("  %-3s %-16s %-10s %-9d %s"
+              % ("ON " if on else "off", name, st.get("mode", "auto"), seen, src))
+    print("")
+    print("  Зөвхөн нэгийг үлдээх:   python forwarder.py --only <нэр>")
+    print("  Нэгийг унтраах:         python forwarder.py --disable <нэр>")
+    print("  Буцааж асаах:           python forwarder.py --enable <нэр>")
+    print("")
+
+
+def cmd_toggle(cfg, name, mode):
+    """
+    mode: "only"    -> зөвхөн энэ сайтыг үлдээж бусдыг унтраана
+          "enable"  -> энэ сайтыг асаана
+          "disable" -> энэ сайтыг унтраана
+    """
+    sites = cfg.get("sites", [])
+    names = [st.get("name", "") for st in sites]
+    if name not in names:
+        log("'%s' нэртэй сайт олдсонгүй." % name)
+        log("Байгаа сайтууд: %s" % ", ".join(names))
+        return
+    for st in sites:
+        if mode == "only":
+            st["enabled"] = (st.get("name") == name)
+        elif st.get("name") == name:
+            st["enabled"] = (mode == "enable")
+    save_config(cfg)
+    on = [st.get("name") for st in sites if st.get("enabled", True)]
+    log("Одоо асаалттай: %s" % (", ".join(on) if on else "(нэг ч байхгүй)"))
+    log("Унтраалттай:   %s" % (", ".join(n for n in names if n not in on) or "(байхгүй)"))
+
+
 # ---------------------------------------------------------------- main
 
 def main():
@@ -1558,12 +1611,26 @@ def main():
     ap.add_argument("--name", default=None, help="--add хийхэд өгөх сайтын нэр (үндсэн: домэйн)")
     ap.add_argument("--inspect", metavar="URL", default=None, help="шинэ сайтын selector-ийг гараар судлах")
     ap.add_argument("--test-telegram", action="store_true", help="Telegram холболт шалгах")
+    ap.add_argument("--list", action="store_true", help="тохируулсан сайтуудыг жагсаах")
+    ap.add_argument("--only", metavar="НЭР", default=None,
+                    help="ЗӨВХӨН энэ сайтыг үлдээж бусдыг унтраах")
+    ap.add_argument("--enable", metavar="НЭР", default=None, help="сайтыг асаах")
+    ap.add_argument("--disable", metavar="НЭР", default=None, help="сайтыг унтраах")
     ap.add_argument("--config", default=None, help="өөр тохиргооны файл ашиглах (default: sites.json)")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
     settings = cfg.get("settings", {})
     session = requests.Session()
+
+    if args.list:
+        cmd_list(cfg)
+        return
+
+    for mode, val in (("only", args.only), ("enable", args.enable), ("disable", args.disable)):
+        if val:
+            cmd_toggle(cfg, val, mode)
+            return
 
     if args.add:
         cmd_add(args.add, cfg, settings, args.name)
