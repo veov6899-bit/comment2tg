@@ -1645,9 +1645,11 @@ def main():
         log("Telegram тест: %s" % ("АМЖИЛТТАЙ" if ok else "БҮТЭЛГҮЙ"))
         return
 
-    sites = [s for s in cfg.get("sites", []) if s.get("enabled", True)]
     if args.site:
-        sites = [s for s in sites if s.get("name") == args.site]
+        # Нэрээр нь шууд заасан бол унтраалттай байсан ч ажиллуулна (турших боломжтой байх ёстой)
+        sites = [s for s in cfg.get("sites", []) if s.get("name") == args.site]
+    else:
+        sites = [s for s in cfg.get("sites", []) if s.get("enabled", True)]
     if not sites:
         log("Ажиллуулах сайт алга (sites.json дотор enabled=true эсэхийг шалгана уу)")
         return
