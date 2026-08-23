@@ -183,6 +183,37 @@
         "include_keywords": [],
         "exclude_keywords": []
       }
+    },
+    {
+      "name": "dusal-umbrella.coo.mn",
+      "enabled": true,
+      "mode": "auto",
+      "newest_first": true,
+      "title_selector": "h1",
+      "discover": {
+        "from": [
+          "https://dusal-umbrella.coo.mn/"
+        ],
+        "link_selector": "a[href]",
+        "link_pattern": "^https://dusal\\-umbrella\\.coo\\.mn/\\d+/[A-Za-z0-9\\-_%.Ѐ-ӿ]+/?$",
+        "max_pages": 20
+      },
+      "pages": [
+        "https://dusal-umbrella.coo.mn/104136/zuvhun-nasand-huregchded-18+.html"
+      ],
+      "filter": {
+        "min_length": 2,
+        "include_keywords": [],
+        "exclude_keywords": []
+      },
+      "comment": {
+        "item": ".boxcomment",
+        "text": ".comment-body",
+        "author": "",
+        "date": "",
+        "id_selector": "",
+        "id_attr": ""
+      }
     }
   ]
 }
