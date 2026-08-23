@@ -1,0 +1,188 @@
+{
+  "_readme": [
+    "ШИНЭ САЙТ НЭМЭХ (хамгийн хялбар):",
+    "    python forwarder.py --add https://сайт.mn/сэтгэгдэлтэй-мэдээний-линк",
+    "  -> сэтгэгдлийн бүтцийг өөрөө таниад доорх sites жагсаалтад бичнэ. Гараар selector бичих шаардлагагүй.",
+    "Эхэнд нэг удаа: telegram.bot_token, telegram.chat_id-г бөглөнө (ботыг сувагт admin болгоно).",
+    "Сайт бүрийн доторх линкүүдийн утга:",
+    "  discover.from   = ямар хуудаснаас ШИНЭ мэдээг хайхыг заана (нүүр хуудас, ангиллын хуудсууд).",
+    "  discover.link_pattern = тэдгээр хуудсан дээрх линкүүдээс зөвхөн мэдээг шүүх загвар.",
+    "  pages           = байнга шалгах тогтмол хаягууд (заавал биш)."
+  ],
+  "telegram": {
+    "bot_token": "",
+    "chat_id": "",
+    "disable_web_page_preview": true,
+    "_note": "Токен secrets.json дотор (git-д ордоггүй) эсвэл TG_BOT_TOKEN/TG_CHAT_ID орчны хувьсагчид байна."
+  },
+  "settings": {
+    "interval_seconds": 300,
+    "request_delay_seconds": 1.0,
+    "send_delay_seconds": 3,
+    "timeout": 25,
+    "max_send_per_run": 20,
+    "include_author": false,
+    "verify_ssl": true,
+    "tg_attempts": 15,
+    "tg_timeout": 8,
+    "proxy": "",
+    "show_link": false,
+    "show_site": false,
+    "show_date": false
+  },
+  "sites": [
+    {
+      "name": "zarig.mn",
+      "enabled": true,
+      "mode": "html",
+      "newest_first": true,
+      "title_selector": "h1",
+      "discover": {
+        "from": [
+          "https://zarig.mn/",
+          "https://zarig.mn/politics",
+          "https://zarig.mn/society"
+        ],
+        "link_selector": "a.small-list-item, a.category-news, a.list-item",
+        "link_pattern": "^https://zarig\\.mn/[a-z0-9]{2,6}$",
+        "max_pages": 30
+      },
+      "pages": [],
+      "comment": {
+        "item": ".comments__list",
+        "text": ".comments__list-body--text",
+        "author": ".comments__list-body--tool strong",
+        "date": ".comments__list-body--tool > div:nth-of-type(2)",
+        "id_selector": ".commentVote",
+        "id_attr": "data-id"
+      },
+      "filter": {
+        "min_length": 2,
+        "include_keywords": [],
+        "exclude_keywords": []
+      },
+      "_note": "3 линк = мэдээ хайх 3 хуудас (нүүр + улс төр + нийгэм). Сэтгэгдэл нь мэдээ бүрийн дотор байдаг."
+    },
+    {
+      "name": "isee.mn",
+      "enabled": true,
+      "mode": "auto",
+      "newest_first": true,
+      "title_selector": "h1",
+      "discover": {
+        "from": [
+          "https://isee.mn/"
+        ],
+        "link_selector": "a[href]",
+        "link_pattern": "^https://isee\\.mn/n/\\d+/?$",
+        "max_pages": 20
+      },
+      "pages": [
+        "https://isee.mn/n/94352"
+      ],
+      "filter": {
+        "min_length": 2,
+        "include_keywords": [],
+        "exclude_keywords": []
+      }
+    },
+    {
+      "name": "news.mn",
+      "enabled": true,
+      "mode": "wordpress",
+      "base_url": "https://news.mn",
+      "per_page": 20,
+      "newest_first": true,
+      "filter": {
+        "min_length": 2,
+        "include_keywords": [],
+        "exclude_keywords": []
+      }
+    },
+    {
+      "name": "unuudur.mn",
+      "enabled": true,
+      "mode": "auto",
+      "newest_first": true,
+      "title_selector": "h1",
+      "discover": {
+        "from": [
+          "https://unuudur.mn/"
+        ],
+        "link_selector": "a[href]",
+        "link_pattern": "^https://unuudur\\.mn/a/\\d+/?$",
+        "max_pages": 20
+      },
+      "pages": [
+        "https://unuudur.mn/a/270615"
+      ],
+      "filter": {
+        "min_length": 2,
+        "include_keywords": [],
+        "exclude_keywords": []
+      },
+      "comment": {
+        "item": ".comment-item",
+        "text": ".comment-item__desc",
+        "author": ".comment-item__name",
+        "date": "",
+        "id_selector": "",
+        "id_attr": "id"
+      }
+    },
+    {
+      "name": "shuurhai.mn",
+      "enabled": true,
+      "mode": "auto",
+      "newest_first": true,
+      "title_selector": "h1",
+      "discover": {
+        "from": [
+          "https://shuurhai.mn/"
+        ],
+        "link_selector": "a[href]",
+        "link_pattern": "^https://shuurhai\\.mn/p/\\d+/?$",
+        "max_pages": 20
+      },
+      "pages": [
+        "https://shuurhai.mn/p/30906"
+      ],
+      "filter": {
+        "min_length": 2,
+        "include_keywords": [],
+        "exclude_keywords": []
+      },
+      "comment": {
+        "item": ".comment",
+        "text": ".comment-content > p",
+        "author": "",
+        "date": "time",
+        "id_selector": ".comment-wrap",
+        "id_attr": "id"
+      }
+    },
+    {
+      "name": "ikon.mn",
+      "enabled": true,
+      "mode": "auto",
+      "newest_first": true,
+      "title_selector": "h1",
+      "discover": {
+        "from": [
+          "https://ikon.mn/"
+        ],
+        "link_selector": "a[href]",
+        "link_pattern": "^https://ikon\\.mn/(?:n|opinion)/[a-z0-9]{2,8}/?$",
+        "max_pages": 20
+      },
+      "pages": [
+        "https://ikon.mn/opinion/3pl0"
+      ],
+      "filter": {
+        "min_length": 2,
+        "include_keywords": [],
+        "exclude_keywords": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+name: comment2tg
+
+# Сайтуудын шинэ сэтгэгдлийг Telegram суваг руу дамжуулна.
+# Үнэгүй ажиллана: НИЙТИЙН (public) репод GitHub Actions-ийн минут хязгааргүй.
+# Хаалттай (private) репо бол сард 2000 минут л үнэгүй тул cron-оо "0 * * * *" (цаг тутам) болгоно уу.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"      # 15 минут тутам (GitHub-ийн доод хязгаар нь 5 минут)
+  workflow_dispatch:             # гараар ажиллуулах товч
+
+permissions:
+  contents: write                # state-ээ буцааж хадгалахын тулд
+
+concurrency:
+  group: comment2tg              # хоёр ажил зэрэг ажиллаж давхар илгээхээс сэргийлнэ
+  cancel-in-progress: false
+
+jobs:
+  forward:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Сангуудыг суулгах
+        run: pip install -r requirements.txt
+
+      - name: Шинэ сэтгэгдлийг дамжуулах
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: python forwarder.py --once
+
+      - name: Уншсан тэмдэглэгээг хадгалах
+        run: |
+          git config user.name "comment2tg"
+          git config user.email "actions@users.noreply.github.com"
+          git add state
+          if git diff --cached --quiet; then
+            echo "өөрчлөлт алга"
+          else
+            git commit -m "state: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git pull --rebase --autostash
+            git push
+          fi
