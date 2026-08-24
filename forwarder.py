@@ -1000,7 +1000,7 @@ def discover_article_urls(origin, settings, session, limit=40):
 
 
 def pattern_from_links(origin, sample_url, links, min_group=2, max_prefix=3):
-    """
+    r"""
     Сурсан мэдээ маань цөөхөн хэсэгт (жишээ нь зөвхөн /opinion/) байвал
     нүүр хуудсан дээрх хамгийн олон давтагдсан хэсгүүдийг нэгтгэж загвар үүсгэнэ.
     Жишээ: ^https://ikon\.mn/(n|opinion)/[a-z0-9]{2,8}/?$
