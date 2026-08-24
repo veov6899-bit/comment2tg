@@ -4,7 +4,7 @@ name: comment2tg
 #
 # ЯАГААД ИЙМ БҮТЭЦТЭЙ ВЭ:
 # GitHub-ын "*/5 минут тутам" гэсэн хуваарь бодит байдалд найдваргүй (огт асахгүй байх нь бий).
-# Тиймээс нэг ажиллагаа 55 минут үргэлжилж, ДОТРОО 5 минут тутам шалгадаг болгосон.
+# Тиймээс нэг ажиллагаа 58 минут үргэлжилж, ДОТРОО 5 минут тутам шалгадаг болгосон.
 # Ингэснээр GitHub цагт ганц удаа асаахад л хангалттай — цагийн хуваарь илүү найдвартай болно.
 
 on:
@@ -39,11 +39,11 @@ jobs:
           git config user.name "comment2tg"
           git config user.email "actions@users.noreply.github.com"
 
-      - name: Шинэ сэтгэгдлийг дамжуулах (55 минут, 5 минут тутам шалгана)
+      - name: Шинэ сэтгэгдлийг дамжуулах (58 минут, 5 минут тутам шалгана)
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-        run: python forwarder.py --loop --max-runtime 55 --git-sync
+        run: python forwarder.py --loop --max-runtime 58 --git-sync
 
       - name: Эцэст нь тэмдэглэгээг хадгалах
         if: always()
