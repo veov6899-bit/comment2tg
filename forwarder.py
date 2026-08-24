@@ -1606,9 +1606,12 @@ def git_sync():
         return subprocess.run(["git"] + list(args), cwd=BASE_DIR,
                               capture_output=True, text=True, encoding="utf-8")
     try:
+        # Эхлээд ҮРГЭЛЖ татаж авна: ингэснээр sites.json дээрх шинэ тохиргоо
+        # (сайт сольсон гэх мэт) ажиллаж байгаа давталтад шууд хүрнэ.
+        g("pull", "--rebase", "--autostash")
         g("add", "state")
         if g("diff", "--cached", "--quiet").returncode == 0:
-            return                                   # өөрчлөлт алга
+            return                                   # илгээх шинэ тэмдэглэгээ алга
         stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
         g("commit", "-m", "state: %s" % stamp)
         g("pull", "--rebase", "--autostash")
@@ -1672,11 +1675,20 @@ def main():
         log("Telegram тест: %s" % ("АМЖИЛТТАЙ" if ok else "БҮТЭЛГҮЙ"))
         return
 
-    if args.site:
-        # Нэрээр нь шууд заасан бол унтраалттай байсан ч ажиллуулна (турших боломжтой байх ёстой)
-        sites = [s for s in cfg.get("sites", []) if s.get("name") == args.site]
-    else:
-        sites = [s for s in cfg.get("sites", []) if s.get("enabled", True)]
+    def select_sites(c):
+        if args.site:
+            # Нэрээр нь шууд заасан бол унтраалттай байсан ч ажиллуулна (турших боломжтой байх ёстой)
+            return [x for x in c.get("sites", []) if x.get("name") == args.site]
+        return [x for x in c.get("sites", []) if x.get("enabled", True)]
+
+    def cfg_fingerprint():
+        try:
+            with open(args.config or CONFIG_PATH, "rb") as f:
+                return hashlib.sha1(f.read()).hexdigest()
+        except Exception:
+            return ""
+
+    sites = select_sites(cfg)
     if not sites:
         log("Ажиллуулах сайт алга (sites.json дотор enabled=true эсэхийг шалгана уу)")
         return
@@ -1685,8 +1697,27 @@ def main():
 
     started = time.time()
     deadline = started + args.max_runtime * 60 if args.max_runtime else None
+    cfg_sig = cfg_fingerprint()
 
     while True:
+        # Тохиргоо өөрчлөгдсөн эсэхийг мөчлөг бүрд шалгана.
+        # (Үүлэн дээр git pull хийхэд шинэ sites.json татагдаж ирдэг.)
+        new_sig = cfg_fingerprint()
+        if new_sig and new_sig != cfg_sig:
+            try:
+                cfg = load_config(args.config)
+                settings = cfg.get("settings", {})
+                interval = int(settings.get("interval_seconds", 300))
+                sites = select_sites(cfg)
+                cfg_sig = new_sig
+                names = ", ".join(x.get("name", "?") for x in sites) or "(нэг ч байхгүй)"
+                log("Тохиргоо шинэчлэгдлээ -> асаалттай: %s" % names)
+            except Exception as e:
+                log("! шинэ тохиргоог уншиж чадсангүй, хуучнаар үргэлжлүүлнэ: %s" % e)
+                cfg_sig = new_sig
+            if not sites:
+                log("Асаалттай сайт алга. Дараагийн шалгалтыг хүлээнэ.")
+
         total = 0
         for s in sites:
             try:
