@@ -194,11 +194,20 @@ def push(msg):
         print("\n  Дараах командыг гараар ажиллуулж үзнэ үү:  git pull --rebase\n")
         return
     git(["add", "-A"], quiet=True)
-    st = git(["diff", "--cached", "--quiet"], quiet=True)
-    if st.returncode == 0:
-        print("  Өөрчлөлт алга — илгээх зүйл байхгүй.\n")
+    # 1) Хадгалаагүй өөрчлөлт байвал commit хийнэ
+    if git(["diff", "--cached", "--quiet"], quiet=True).returncode != 0:
+        git(["commit", "-m", msg], quiet=True)
+
+    # 2) Илгээгээгүй commit байгаа эсэхийг шалгана
+    #    (өмнө нь энэ шалгалт байхгүй байсан тул хадгалсан хэрнээ илгээгээгүй
+    #     өөрчлөлтийг "алга" гэж буруу хэлдэг байв)
+    ahead = git(["rev-list", "--count", "@{u}..HEAD"], quiet=True).stdout.strip()
+    if not ahead.isdigit():
+        ahead = git(["rev-list", "--count", "origin/main..HEAD"], quiet=True).stdout.strip()
+    if not ahead.isdigit() or int(ahead) == 0:
+        print("  Өөрчлөлт алга — бүх зүйл GitHub дээр байна.\n")
         return
-    git(["commit", "-m", msg], quiet=True)
+    print("  Илгээх өөрчлөлт: %s ширхэг\n" % ahead)
     r = git(["push"], quiet=True)
     if r.returncode == 0:
         print("  OK. GitHub руу илгээгдлээ: %s" % msg)
