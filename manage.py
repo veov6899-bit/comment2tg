@@ -42,9 +42,18 @@ def git(args, quiet=False):
     return r
 
 
-def sites():
+def load_cfg():
     with io.open(CFG, encoding="utf-8") as f:
-        return json.load(f).get("sites", [])
+        return json.load(f)
+
+
+def save_cfg(c):
+    with io.open(CFG, "w", encoding="utf-8") as f:
+        json.dump(c, f, ensure_ascii=False, indent=2)
+
+
+def sites():
+    return load_cfg().get("sites", [])
 
 
 def ask(prompt):
@@ -184,6 +193,97 @@ def act_check_local():
         print("")
 
 
+MODE_TEXT = {
+    "strip": "strip  (зөвхөн эможиг арилгаад текстийг илгээнэ)",
+    "skip": "skip   (тэр эможитой сэтгэгдлийг ОГТ илгээхгүй)",
+}
+
+
+def parse_emoji(raw):
+    """
+    Оруулсан мөрийг эможи болгон задална.
+    Шууд буулгаж болно (🐸 💋), эсвэл кодоор бичиж болно (U+1F438).
+    """
+    out = []
+    for tok in raw.replace(",", " ").split():
+        t = tok.strip()
+        if not t:
+            continue
+        if t.upper().startswith("U+"):
+            try:
+                t = chr(int(t[2:], 16))
+            except ValueError:
+                print("    '%s' -> код буруу байна, алгаслаа" % tok)
+                continue
+        out.append(t)
+    return out
+
+
+def act_emoji():
+    changed = False
+    while True:
+        c = load_cfg()
+        ef = c.setdefault("settings", {}).setdefault(
+            "emoji_filter", {"mode": "strip", "list": []})
+        lst = ef.setdefault("list", [])
+        mode = ef.get("mode", "strip")
+
+        print("\n  ЭМОЖИЙН ШҮҮЛТҮҮР")
+        print("  Горим: %s\n" % MODE_TEXT.get(mode, mode))
+        if lst:
+            for i, e in enumerate(lst, 1):
+                print("    %d) %s   (U+%04X)" % (i, e, ord(e[0])))
+        else:
+            print("    (жагсаалт хоосон - юу ч шүүхгүй)")
+        print("""
+    a) Эможи НЭМЭХ
+    d) Эможи ХАСАХ
+    m) Горим солих (strip <-> skip)
+    0) Буцах""")
+
+        a = ask("\n  Сонголт: ").lower()
+
+        if a in ("0", ""):
+            if changed:
+                offer_push("эможийн шүүлтүүр шинэчлэв")
+            return
+
+        elif a == "a":
+            print("\n  Эможигоо буулгана уу (олныг зайгаар тусгаарлана).")
+            print("  Буулгаж чадахгүй бол кодоор бичиж болно, жишээ нь: U+1F438\n")
+            raw = ask("  Эможи: ")
+            add = [e for e in parse_emoji(raw) if e not in lst]
+            if not add:
+                print("\n  Шинэ эможи алга (эсвэл аль хэдийн жагсаалтад байна).\n")
+                continue
+            lst.extend(add)
+            save_cfg(c)
+            changed = True
+            print("\n  Нэмэгдлээ: %s\n" % " ".join(add))
+
+        elif a == "d":
+            if not lst:
+                print("\n  Жагсаалт хоосон байна.\n")
+                continue
+            n = ask("\n  Хасах эможийн дугаар: ")
+            if not n.isdigit() or not (1 <= int(n) <= len(lst)):
+                print("\n  Дугаар буруу байна.\n")
+                continue
+            gone = lst.pop(int(n) - 1)
+            save_cfg(c)
+            changed = True
+            print("\n  Хасагдлаа: %s\n" % gone)
+
+        elif a == "m":
+            ef["mode"] = "skip" if mode == "strip" else "strip"
+            save_cfg(c)
+            changed = True
+            print("\n  Шинэ горим: %s\n" % MODE_TEXT[ef["mode"]])
+
+        else:
+            print("\n  a, d, m эсвэл 0 гэж бичнэ үү.\n")
+
+
 def push(msg):
     print("\n  GitHub руу илгээж байна...\n")
     # Үүлэн ажиллагаа өөрийн тэмдэглэгээг хадгалдаг тул эхлээд татаж авна
@@ -240,6 +340,7 @@ MENU = """
     5) Туршиж үзэх (илгээхгүй)
     6) GitHub руу илгээх
     7) Энэ компьютер дээр ажиллаж байгаа эсэхийг шалгах
+    8) Эможийн шүүлтүүр (нэмэх / хасах)
     0) Гарах
 """
 
@@ -265,6 +366,8 @@ def main():
             push("тохиргоо шинэчлэв")
         elif a == "7":
             act_check_local()
+        elif a == "8":
+            act_emoji()
         elif a in ("0", "q", ""):
             print("\n  Баяртай.\n")
             return
