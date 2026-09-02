@@ -28,7 +28,18 @@
     "proxy": "",
     "show_link": false,
     "show_site": false,
-    "show_date": false
+    "show_date": false,
+    "emoji_filter": {
+      "_note": "mode: strip = зөвхөн эможиг арилгана | skip = тэр сэтгэгдлийг огт илгээхгүй",
+      "mode": "strip",
+      "list": [
+        "🐸",
+        "💋",
+        "💞",
+        "💘",
+        "💗"
+      ]
+    }
   },
   "sites": [
     {
