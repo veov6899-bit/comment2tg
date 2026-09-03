@@ -197,7 +197,7 @@
     },
     {
       "name": "dusal-umbrella.coo.mn",
-      "enabled": false,
+      "enabled": true,
       "mode": "auto",
       "newest_first": true,
       "title_selector": "h1",
