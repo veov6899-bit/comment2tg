@@ -284,6 +284,49 @@ def act_emoji():
             print("\n  a, d, m эсвэл 0 гэж бичнэ үү.\n")
 
 
+def act_phone():
+    changed = False
+    while True:
+        c = load_cfg()
+        pf = c.setdefault("settings", {}).setdefault(
+            "phone_filter", {"enabled": False, "mode": "strip"})
+        on = pf.get("enabled", False)
+        mode = pf.get("mode", "strip")
+
+        mode_txt = {
+            "strip": "strip  (зөвхөн дугаарыг арилгаад текстийг илгээнэ)",
+            "skip": "skip   (дугаартай сэтгэгдлийг ОГТ илгээхгүй)",
+        }.get(mode, mode)
+
+        print("\n  УТАСНЫ ДУГААРЫН ШҮҮЛТҮҮР")
+        print("  Төлөв: %s" % ("АСААЛТТАЙ" if on else "унтраалттай"))
+        print("  Горим: %s" % mode_txt)
+        print("  (Монгол 8 оронтой утас: 99112233, 8050-2941, +976... таьна.")
+        print("   Он/огноо/үнэ хөндөгдөхгүй.)")
+        print("""
+    e) Асаах / Унтраах
+    m) Горим солих (strip <-> skip)
+    0) Буцах""")
+
+        a = ask("\n  Сонголт: ").lower()
+        if a in ("0", ""):
+            if changed:
+                offer_push("утасны дугаарын шүүлтүүр шинэчлэв")
+            return
+        elif a == "e":
+            pf["enabled"] = not on
+            save_cfg(c)
+            changed = True
+            print("\n  Одоо: %s\n" % ("АСААЛТТАЙ" if pf["enabled"] else "унтраалттай"))
+        elif a == "m":
+            pf["mode"] = "skip" if mode == "strip" else "strip"
+            save_cfg(c)
+            changed = True
+            print("\n  Шинэ горим: %s\n" % pf["mode"])
+        else:
+            print("\n  e, m эсвэл 0 гэж бичнэ үү.\n")
+
+
 def push(msg):
     print("\n  GitHub руу илгээж байна...\n")
     # Үүлэн ажиллагаа өөрийн тэмдэглэгээг хадгалдаг тул эхлээд татаж авна
@@ -341,6 +384,7 @@ MENU = """
     6) GitHub руу илгээх
     7) Энэ компьютер дээр ажиллаж байгаа эсэхийг шалгах
     8) Эможийн шүүлтүүр (нэмэх / хасах)
+    9) Утасны дугаар шүүх (асаах / унтраах)
     0) Гарах
 """
 
@@ -368,6 +412,8 @@ def main():
             act_check_local()
         elif a == "8":
             act_emoji()
+        elif a == "9":
+            act_phone()
         elif a in ("0", "q", ""):
             print("\n  Баяртай.\n")
             return

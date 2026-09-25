@@ -33,6 +33,14 @@ import requests
 from requests.adapters import HTTPAdapter
 from bs4 import BeautifulSoup
 
+# Зарим сайт (жишээ нь coo.mn) XML маягтай хуудас өгдөг тул гарах анхааруулгыг далдална
+try:
+    import warnings
+    from bs4 import XMLParsedAsHTMLWarning
+    warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
+except Exception:
+    pass
+
 # Windows консол дээр кирилл үсэг зөв гарахын тулд
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -59,6 +67,19 @@ _TG_ENDPOINT = None                # ажилласан хаягийг сана�
 _EMOJI_LIST = []
 _EMOJI_MODE = "strip"              # "strip" = эможиг арилгана, "skip" = сэтгэгдлийг илгээхгүй
 VARIATION_SELECTOR = "\ufe0f"      # эможийн ард ордог үл үзэгдэх тэмдэгт
+
+# Утасны дугаарын шүүлтүүр. Монгол утас = 8 орон, 6/7/8/9-өөр эхэлдэг.
+# Эхний оронг 6-9 гэж шаардсанаар он (19xx/20xx), огноо, ихэнх үнийг андуурахгүй.
+_PHONE_ON = False
+_PHONE_MODE = "strip"              # "strip" = дугаарыг арилгана, "skip" = сэтгэгдлийг илгээхгүй
+PHONE_RE = re.compile(
+    r"(?<![\d+])(?:"
+    r"\+?976[\s\-.]?[6-9]\d{7}"                      # +976 99112233
+    r"|[6-9]\d[\s\-.]\d{2}[\s\-.]\d{2}[\s\-.]\d{2}"   # 99 11 22 33
+    r"|[6-9]\d{3}[\s\-.]\d{4}"                        # 9911-2233
+    r"|[6-9]\d{7}"                                      # 99112233
+    r")(?!\d)"
+)
 
 
 # ---------------------------------------------------------------- туслах хэрэгсэл
@@ -175,26 +196,40 @@ def pick_attr(node, selector, attr):
 
 def set_emoji_filter(cfg):
     """sites.json-оос эможийн тохиргоог уншиж модульд суулгана."""
-    global _EMOJI_LIST, _EMOJI_MODE
-    ef = (cfg.get("settings", {}) or {}).get("emoji_filter") or {}
+    global _EMOJI_LIST, _EMOJI_MODE, _PHONE_ON, _PHONE_MODE
+    st = cfg.get("settings", {}) or {}
+    ef = st.get("emoji_filter") or {}
     _EMOJI_LIST = [e for e in (ef.get("list") or []) if e]
     _EMOJI_MODE = (ef.get("mode") or "strip").lower()
+    pf = st.get("phone_filter") or {}
+    _PHONE_ON = bool(pf.get("enabled", False))
+    _PHONE_MODE = (pf.get("mode") or "strip").lower()
 
 
 def apply_emoji_filter(text):
     """
+    Эможи болон утасны дугаарын шүүлтүүрийг хоёуланг нь хэрэглэнэ.
     Буцаах: цэвэрлэсэн текст, эсвэл None (энэ сэтгэгдлийг илгээхгүй).
     """
-    if not _EMOJI_LIST or not text:
+    if not text:
         return text
-    if not any(e in text for e in _EMOJI_LIST):
-        return text
-    if _EMOJI_MODE == "skip":
-        return None                                   # эможи олдсон -> огт илгээхгүй
-    for e in _EMOJI_LIST:                             # strip: зөвхөн эможиг арилгана
-        text = text.replace(e, " ")
-    text = text.replace(VARIATION_SELECTOR, " ")
-    return clean(text)
+
+    # --- Эможи ---
+    if _EMOJI_LIST and any(e in text for e in _EMOJI_LIST):
+        if _EMOJI_MODE == "skip":
+            return None                              # эможитой -> огт илгээхгүй
+        for e in _EMOJI_LIST:
+            text = text.replace(e, " ")
+        text = text.replace(VARIATION_SELECTOR, " ")
+
+    # --- Утасны дугаар ---
+    if _PHONE_ON and PHONE_RE.search(text):
+        if _PHONE_MODE == "skip":
+            return None                              # дугаартай -> огт илгээхгүй
+        text = PHONE_RE.sub(" ", text)               # strip: зөвхөн дугаарыг арилгана
+
+    text = clean(text)
+    return text or None                              # хоосон үлдвэл илгээхгүй
 
 
 def extract_comments(html_text, site, page_url, title_override=None):

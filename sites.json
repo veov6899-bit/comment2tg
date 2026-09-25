@@ -46,6 +46,11 @@
         "◽️",
         "🔘"
       ]
+    },
+    "phone_filter": {
+      "_note": "enabled: утасны дугаар шүүх эсэх | mode: strip = дугаарыг арилгана, skip = сэтгэгдлийг огт илгээхгүй",
+      "enabled": true,
+      "mode": "strip"
     }
   },
   "sites": [
