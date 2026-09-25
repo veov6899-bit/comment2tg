@@ -72,6 +72,7 @@ VARIATION_SELECTOR = "\ufe0f"      # эможийн ард ордог үл үз�
 # Эхний оронг 6-9 гэж шаардсанаар он (19xx/20xx), огноо, ихэнх үнийг андуурахгүй.
 _PHONE_ON = False
 _PHONE_MODE = "strip"              # "strip" = дугаарыг арилгана, "skip" = сэтгэгдлийг илгээхгүй
+_PHONE_TARGET_RE = None            # тодорхой дугаарууд заасан бол зөвхөн тэдгээрийг таьна
 PHONE_RE = re.compile(
     r"(?<![\d+])(?:"
     r"\+?976[\s\-.]?[6-9]\d{7}"                      # +976 99112233
@@ -194,9 +195,29 @@ def pick_attr(node, selector, attr):
     return clean(str(el.get(attr, "")))
 
 
+def build_phone_targets(numbers):
+    """
+    Заасан дугаар бүрийг зай/зураас/цэгтэй ямар ч хэлбэрээр нь таьдаг regex үүсгэнэ.
+    "99112233" -> 99112233, 9911-2233, 99 11 22 33, +976 99112233 бүгдийг таьна.
+    """
+    pats = []
+    for n in numbers:
+        digits = re.sub(r"\D", "", n or "")
+        # улсын код 976-г хасаад цөм дугаарыг авна
+        if digits.startswith("976") and len(digits) > 8:
+            digits = digits[3:]
+        if len(digits) < 5:
+            continue                                  # хэт богино -> алгасна (аюулгүйн үүднээс)
+        body = r"[\s.\-]?".join(re.escape(d) for d in digits)
+        pats.append(r"(?:\+?976[\s\-.]?)?" + body)
+    if not pats:
+        return None
+    return re.compile(r"(?<!\d)(?:" + "|".join(pats) + r")(?!\d)")
+
+
 def set_emoji_filter(cfg):
     """sites.json-оос эможийн тохиргоог уншиж модульд суулгана."""
-    global _EMOJI_LIST, _EMOJI_MODE, _PHONE_ON, _PHONE_MODE
+    global _EMOJI_LIST, _EMOJI_MODE, _PHONE_ON, _PHONE_MODE, _PHONE_TARGET_RE
     st = cfg.get("settings", {}) or {}
     ef = st.get("emoji_filter") or {}
     _EMOJI_LIST = [e for e in (ef.get("list") or []) if e]
@@ -204,6 +225,7 @@ def set_emoji_filter(cfg):
     pf = st.get("phone_filter") or {}
     _PHONE_ON = bool(pf.get("enabled", False))
     _PHONE_MODE = (pf.get("mode") or "strip").lower()
+    _PHONE_TARGET_RE = build_phone_targets(pf.get("list") or [])
 
 
 def apply_emoji_filter(text):
@@ -223,10 +245,12 @@ def apply_emoji_filter(text):
         text = text.replace(VARIATION_SELECTOR, " ")
 
     # --- Утасны дугаар ---
-    if _PHONE_ON and PHONE_RE.search(text):
-        if _PHONE_MODE == "skip":
-            return None                              # дугаартай -> огт илгээхгүй
-        text = PHONE_RE.sub(" ", text)               # strip: зөвхөн дугаарыг арилгана
+    if _PHONE_ON:
+        rx = _PHONE_TARGET_RE or PHONE_RE            # жагсаалт байвал зөвхөн тэр дугаарууд
+        if rx.search(text):
+            if _PHONE_MODE == "skip":
+                return None                          # дугаартай -> огт илгээхгүй
+            text = rx.sub(" ", text)                 # strip: зөвхөн дугаарыг арилгана
 
     text = clean(text)
     return text or None                              # хоосон үлдвэл илгээхгүй

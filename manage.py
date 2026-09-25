@@ -289,9 +289,10 @@ def act_phone():
     while True:
         c = load_cfg()
         pf = c.setdefault("settings", {}).setdefault(
-            "phone_filter", {"enabled": False, "mode": "strip"})
+            "phone_filter", {"enabled": False, "mode": "strip", "list": []})
         on = pf.get("enabled", False)
         mode = pf.get("mode", "strip")
+        lst = pf.setdefault("list", [])
 
         mode_txt = {
             "strip": "strip  (зөвхөн дугаарыг арилгаад текстийг илгээнэ)",
@@ -301,11 +302,18 @@ def act_phone():
         print("\n  УТАСНЫ ДУГААРЫН ШҮҮЛТҮҮР")
         print("  Төлөв: %s" % ("АСААЛТТАЙ" if on else "унтраалттай"))
         print("  Горим: %s" % mode_txt)
-        print("  (Монгол 8 оронтой утас: 99112233, 8050-2941, +976... таьна.")
-        print("   Он/огноо/үнэ хөндөгдөхгүй.)")
+        if lst:
+            print("  Зорилтот дугаарууд (ЗӨВХӨН эдгээрийг арилгана):")
+            for i, n in enumerate(lst, 1):
+                print("    %d) %s" % (i, n))
+        else:
+            print("  Зорилтот жагсаалт ХООСОН -> БҮХ 8 оронтой утсыг арилгана.")
         print("""
     e) Асаах / Унтраах
     m) Горим солих (strip <-> skip)
+    a) Тодорхой дугаар НЭМЭХ  (зөвхөн түүнийг арилгана)
+    d) Дугаар ХАСАХ
+    c) Жагсаалтыг цэвэрлэх    (буцаад бүх утсыг арилгана)
     0) Буцах""")
 
         a = ask("\n  Сонголт: ").lower()
@@ -323,8 +331,39 @@ def act_phone():
             save_cfg(c)
             changed = True
             print("\n  Шинэ горим: %s\n" % pf["mode"])
+        elif a == "a":
+            raw = ask("\n  Арилгах дугаар (олныг зайгаар): ")
+            add = [x.strip() for x in raw.replace(",", " ").split() if x.strip()]
+            add = [x for x in add if x not in lst]
+            if not add:
+                print("\n  Шинэ дугаар алга.\n")
+                continue
+            lst.extend(add)
+            save_cfg(c)
+            changed = True
+            print("\n  Нэмэгдлээ: %s\n" % " ".join(add))
+        elif a == "d":
+            if not lst:
+                print("\n  Жагсаалт хоосон байна.\n")
+                continue
+            n = ask("\n  Хасах дугаарын дугаарлал: ")
+            if not n.isdigit() or not (1 <= int(n) <= len(lst)):
+                print("\n  Дугаар буруу байна.\n")
+                continue
+            gone = lst.pop(int(n) - 1)
+            save_cfg(c)
+            changed = True
+            print("\n  Хасагдлаа: %s\n" % gone)
+        elif a == "c":
+            if lst:
+                lst.clear()
+                save_cfg(c)
+                changed = True
+                print("\n  Жагсаалт цэвэрлэгдлээ -> одоо бүх утсыг арилгана.\n")
+            else:
+                print("\n  Жагсаалт аль хэдийн хоосон байна.\n")
         else:
-            print("\n  e, m эсвэл 0 гэж бичнэ үү.\n")
+            print("\n  e, m, a, d, c эсвэл 0 гэж бичнэ үү.\n")
 
 
 def push(msg):
